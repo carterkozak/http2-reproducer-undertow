@@ -1,0 +1,30 @@
+plugins {
+  id 'java-library'
+  id 'idea'
+  id 'eclipse'
+}
+
+repositories {
+    jcenter()
+    mavenCentral()
+    maven { url 'https://palantir.bintray.com/releases'}
+}
+
+// Require jdk11 lts to ensure ALPN support
+sourceCompatibility = 11
+targetCompatibility = 11
+
+dependencies {
+    // Server deps
+    implementation 'io.undertow:undertow-core:2.0.29.Final'
+
+    // Client deps
+    implementation 'com.palantir.conjure.java.runtime:conjure-java-jaxrs-client:4.58.0'
+    implementation 'com.palantir.conjure.java.runtime:keystores:4.58.0'
+
+    // Logging infra
+    runtimeOnly 'org.apache.logging.log4j:log4j-core:2.13.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.13.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.13.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jul:2.13.0'
+}
