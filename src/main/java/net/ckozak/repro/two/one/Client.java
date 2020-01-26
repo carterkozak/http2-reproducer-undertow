@@ -1,6 +1,5 @@
-package net.ckozak.repro.one;
+package net.ckozak.repro.two.one;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.palantir.conjure.java.api.config.service.UserAgent;
@@ -14,7 +13,10 @@ import net.ckozak.repro.LoggerBindings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
@@ -23,10 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 
 public final class Client {
     static {
@@ -37,8 +35,6 @@ public final class Client {
     private static final int THREADS = 32;
     private static final AtomicLong sent = new AtomicLong();
     private static final AtomicLong success = new AtomicLong();
-    private static final byte[] responseData = ('"' + Strings.repeat("Hello, World!", 1024) + '"')
-            .getBytes(StandardCharsets.UTF_8);
 
     public static void main(String[] args) {
         SslConfiguration sslConfig = SslConfiguration.of(Paths.get("src/main/resources/trustStore.jks"));
@@ -69,7 +65,7 @@ public final class Client {
                     // reset interruption
                     Thread.interrupted();
                     try {
-                        client.ping(responseData);
+                        client.ping();
                         success.incrementAndGet();
                     } catch (RuntimeException e) {
                         // interruption cancels requests, which can fail in interesting ways upon interruption.
@@ -92,7 +88,7 @@ public final class Client {
             // successfully complete, we don't get a good distribution of interruptions across the request lifespan
             // and fail to reproduce bugs, but if too many complete successfully there are too few opportunities
             // to trigger the race.
-            Uninterruptibles.sleepUninterruptibly(Duration.ofMillis(10));
+            Uninterruptibles.sleepUninterruptibly(Duration.ofMillis(1));
             Thread randomThread = threads.get(ThreadLocalRandom.current().nextInt(threads.size()));
             randomThread.interrupt();
         }
@@ -105,7 +101,7 @@ public final class Client {
 
         @POST
         @Path("/ping")
-        void ping(byte[] data);
+        String ping();
 
     }
 }
