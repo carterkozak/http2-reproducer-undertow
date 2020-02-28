@@ -1,4 +1,4 @@
-package net.ckozak.repro.two.one;
+package net.ckozak.repro.two;
 
 import com.google.common.base.Strings;
 import com.palantir.conjure.java.api.config.ssl.SslConfiguration;

@@ -1,4 +1,4 @@
-package net.ckozak.repro.two.one;
+package net.ckozak.repro.two;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
