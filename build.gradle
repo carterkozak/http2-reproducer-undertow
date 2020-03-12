@@ -16,7 +16,7 @@ targetCompatibility = 11
 
 dependencies {
     // Server deps
-    implementation 'io.undertow:undertow-core:2.0.29.Final'
+    implementation 'io.undertow:undertow-core:2.0.30.Final'
 
     // Client deps
     implementation 'com.palantir.conjure.java.runtime:conjure-java-jaxrs-client:4.58.0'
