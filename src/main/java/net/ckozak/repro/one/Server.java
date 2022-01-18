@@ -1,11 +1,14 @@
 package net.ckozak.repro.one;
 
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.palantir.conjure.java.api.config.ssl.SslConfiguration;
 import com.palantir.conjure.java.config.ssl.SslSocketFactories;
 import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
 import io.undertow.server.handlers.BlockingHandler;
+import io.undertow.util.Headers;
+import io.undertow.util.HttpString;
 import io.undertow.util.Protocols;
 import net.ckozak.repro.LoggerBindings;
 import org.slf4j.Logger;
@@ -15,6 +18,8 @@ import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Paths;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class Server {
@@ -38,10 +43,21 @@ public final class Server {
                     if (current % 1000 == 0) {
                         log.info("Received {} requests", current);
                     }
-                    if (!Protocols.HTTP_2_0.equals(exchange.getProtocol())) {
-                        log.error("Bad protocol: {}", exchange.getProtocol());
-                    }
+//                    if (!Protocols.HTTP_2_0.equals(exchange.getProtocol())) {
+//                        log.error("Bad protocol: {}", exchange.getProtocol());
+//                    }
                     ByteStreams.copy(exchange.getInputStream(), NilOutputStream.INSTANCE);
+//                    Thread.sleep(1);
+//                    Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
+                    if (ThreadLocalRandom.current().nextInt(10) == 0) {
+                        exchange.setStatusCode(503);
+                    } else {
+                        Thread.sleep(5);
+                        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                        exchange.getOutputStream().write('{');
+                        exchange.getOutputStream().flush();
+                        exchange.getOutputStream().write('}');
+                    }
                 }))
                 .build();
         server.start();

@@ -2,6 +2,7 @@ package net.ckozak.repro.one;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.palantir.conjure.java.api.config.service.UserAgent;
 import com.palantir.conjure.java.api.config.ssl.SslConfiguration;
@@ -10,6 +11,7 @@ import com.palantir.conjure.java.client.config.ClientConfigurations;
 import com.palantir.conjure.java.client.jaxrs.JaxRsClient;
 import com.palantir.conjure.java.config.ssl.SslSocketFactories;
 import com.palantir.conjure.java.okhttp.HostMetricsRegistry;
+import com.palantir.dialogue.clients.DialogueClients;
 import net.ckozak.repro.LoggerBindings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +21,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -42,22 +45,17 @@ public final class Client {
 
     public static void main(String[] args) {
         SslConfiguration sslConfig = SslConfiguration.of(Paths.get("src/main/resources/trustStore.jks"));
-        // This client uses an older okhttp version with http/2 bugs. While it doesn't represent ideal state,
-        // the server should gracefully handle incorrect inputs.
-        SimpleService client = JaxRsClient.create(
-                SimpleService.class,
-                UserAgent.of(UserAgent.Agent.of("repro", "0.0.1")),
-                new HostMetricsRegistry(),
-                ClientConfiguration.builder()
-                        .from(ClientConfigurations.of(
-                                ImmutableList.of("https://localhost:" + PORT),
-                                SslSocketFactories.createSslSocketFactory(sslConfig),
-                                SslSocketFactories.createX509TrustManager(sslConfig)))
-                        .enableGcmCipherSuites(true)
-                        .backoffSlotSize(Duration.ZERO)
-                        .maxNumRetries(0)
-                        .clientQoS(ClientConfiguration.ClientQoS.DANGEROUS_DISABLE_SYMPATHETIC_CLIENT_QOS)
-                        .build());
+        SimpleService client = DialogueClients.create(SimpleService.class, ClientConfiguration.builder()
+                .from(ClientConfigurations.of(
+                        ImmutableList.of("https://localhost:" + PORT),
+                        SslSocketFactories.createSslSocketFactory(sslConfig),
+                        SslSocketFactories.createX509TrustManager(sslConfig)))
+                .userAgent(UserAgent.of(UserAgent.Agent.of("repro", "0.0.1")))
+                .enableGcmCipherSuites(true)
+                .backoffSlotSize(Duration.ofMillis(3))
+                .maxNumRetries(10)
+                .clientQoS(ClientConfiguration.ClientQoS.DANGEROUS_DISABLE_SYMPATHETIC_CLIENT_QOS)
+                .build());
 
         ExecutorService executor = Executors.newCachedThreadPool();
         List<Thread> threads = new CopyOnWriteArrayList<>();
@@ -69,15 +67,23 @@ public final class Client {
                     // reset interruption
                     Thread.interrupted();
                     try {
-                        client.ping(responseData);
-                        success.incrementAndGet();
-                    } catch (RuntimeException e) {
+                        ListenableFuture<?> future = client.ping();
+                        try {
+                            future.get();
+                            success.incrementAndGet();
+                        } catch (InterruptedException e) {
+                            future.cancel(true);
+                        }
+                    } catch (ExecutionException ee) {
+                        Throwable e = ee.getCause();
                         // interruption cancels requests, which can fail in interesting ways upon interruption.
                         // We're interested in how the server responds in these cases.
                         String message = e.getMessage();
                         if (message == null || !message.contains("cancelled via interruption")) {
                             log.warn("client failure", e);
                         }
+                    } catch (Throwable t) {
+                        log.error("client failure", t);
                     }
                 }
             });
@@ -96,16 +102,5 @@ public final class Client {
             Thread randomThread = threads.get(ThreadLocalRandom.current().nextInt(threads.size()));
             randomThread.interrupt();
         }
-    }
-
-    @Path("/simple")
-    @Produces("application/json")
-    @Consumes("application/json")
-    public interface SimpleService {
-
-        @POST
-        @Path("/ping")
-        void ping(byte[] data);
-
     }
 }

@@ -6,8 +6,9 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="okhttp3.OkHttpClient" level="trace"/>
-        <Logger name="org.xnio.listener" level="debug"/>
+        <Logger name="com.palantir.dialogue.core.TimingEndpointChannel" level="warn"/>
+        <Logger name="com.palantir.dialogue.blocking.BlockingChannelAdapter" level="warn"/>
+        <Logger name="com.palantir.dialogue.core.RetryingChannel" level="warn"/>
         <Root level="info">
             <AppenderRef ref="Console"/>
         </Root>
